@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Net;
 using System.IO;
 
-namespace airbrake
+namespace Airbrake.API
 {
     public class ExceptionHandler
     {
@@ -17,7 +17,7 @@ namespace airbrake
         private string _host;
         private string _path;
         private string _environment;
-
+        
         public ExceptionHandler(bool ssl, string host, string path, string apikey, string environment)
         {
             _ssl = ssl;
@@ -27,9 +27,9 @@ namespace airbrake
             _environment = environment;
         }
 
-        public bool Send(Exception ex, List<KeyValuePair> customParams = null)
+        public bool Send(Exception ex, String errorURL, List<KeyValuePair> customParams = null)
         {
-            XmlDocument xml = GetXML(ex, customParams);
+            XmlDocument xml = GetXML(ex, errorURL, customParams);
 
             // Create a request using a URL that can receive a post. 
             string url;
@@ -57,8 +57,12 @@ namespace airbrake
             {
                 response = request.GetResponse();
                 r = (HttpWebResponse)response;
+                
+                //StreamReader readStream = new StreamReader(r.GetResponseStream(), Encoding.UTF8);
+                //Console.WriteLine("Response stream received.");
+                //Console.WriteLine(readStream.ReadToEnd());
             }
-            catch
+            catch (Exception exc)
             {
                 return false;
             }
@@ -75,16 +79,14 @@ namespace airbrake
             return true;
         }
 
-        private XmlDocument GetXML(Exception ex, List<KeyValuePair> customParams = null)
+        private XmlDocument GetXML(Exception ex, String errorURL, List<KeyValuePair> customParams = null)
         {
-
             //Create the xml document and Notice element
             XmlDocument doc = new XmlDocument();
             XmlDeclaration dec = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
             doc.AppendChild(dec);
             XmlElement root = doc.CreateElement("notice");
             root.SetAttribute("version", "2.3");
-
 
             //API Key
             XmlElement apikey = doc.CreateElement("api-key");
@@ -150,6 +152,10 @@ namespace airbrake
             action.InnerText = ex.TargetSite.Name;
             request.AppendChild(action);
 
+            XmlElement requestURL = doc.CreateElement("url");
+            requestURL.InnerText = errorURL;
+            request.AppendChild(requestURL);
+
             //CGI data
             XmlElement cgi = doc.CreateElement("cgi-data");
 
@@ -210,12 +216,10 @@ namespace airbrake
             root.AppendChild(env);
             doc.AppendChild(root);
             return doc;
-
         }
 
         private List<XmlElement> ParseBacktrace(XmlDocument doc, string stack)
         {
-
             List<XmlElement> backtrace = new List<XmlElement>();
             string[] lines = Regex.Split(stack, "\r\n");
 
@@ -244,35 +248,5 @@ namespace airbrake
             };
             return backtrace;
         }
-    }
-
-    public class KeyValuePair
-    {
-
-        string _key = null;
-        string _value = null;
-
-        public KeyValuePair()
-        {
-        }
-
-        public KeyValuePair(string n_key, string n_value)
-        {
-            _key = n_key;
-            _value = n_value;
-        }
-
-        public string Key
-        {
-            get { return _key; }
-            set { _key = value; }
-        }
-
-        public string Value
-        {
-            get { return _value; }
-            set { _value = value; }
-        }
-
-    }
+    }   
 }
